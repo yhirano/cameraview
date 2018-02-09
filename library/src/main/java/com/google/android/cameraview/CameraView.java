@@ -125,6 +125,8 @@ public class CameraView extends FrameLayout {
                 mImpl.setDisplayOrientation(displayOrientation);
             }
         };
+
+        Log.setLogLevel(BuildConfig.DEBUG ? android.util.Log.VERBOSE : android.util.Log.ASSERT);
     }
 
     @NonNull
