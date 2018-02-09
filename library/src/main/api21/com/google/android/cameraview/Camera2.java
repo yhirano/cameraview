@@ -37,6 +37,7 @@ import android.view.Surface;
 
 import java.nio.ByteBuffer;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.SortedSet;
 
@@ -426,14 +427,46 @@ class Camera2 extends CameraViewImpl {
         }
         mPictureSizes.clear();
         collectPictureSizes(mPictureSizes, map);
-        for (AspectRatio ratio : mPreviewSizes.ratios()) {
+        SizeMap previewSizes = (SizeMap) mPreviewSizes.clone();
+        for (Iterator<AspectRatio> ite = previewSizes.ratios().iterator(); ite.hasNext(); ) {
+            AspectRatio ratio = ite.next();
             if (!mPictureSizes.ratios().contains(ratio)) {
-                mPreviewSizes.remove(ratio);
+                ite.remove();
             }
         }
+        if (!previewSizes.isEmpty()) {
+            mPreviewSizes.clear();
+            for (Size size : previewSizes.sizes()) {
+                mPreviewSizes.add(size);
+            }
 
-        if (!mPreviewSizes.ratios().contains(mAspectRatio)) {
-            mAspectRatio = mPreviewSizes.ratios().iterator().next();
+            if (!mPreviewSizes.ratios().contains(mAspectRatio)) {
+                mAspectRatio = mPreviewSizes.ratios().iterator().next();
+            }
+        } else {
+            // If preview's aspect ratio and photo's aspect ratio does not match,
+            // an aspect close to the largest photo size is selected.
+            AspectRatio minRatio = null;
+            Size largestPictureSize = mPictureSizes.sizes().last();
+            AspectRatio largestPictureAspectRatio = AspectRatio.of(largestPictureSize.getWidth(), largestPictureSize.getHeight());
+            for (AspectRatio ratio : mPreviewSizes.ratios()) {
+                if (minRatio == null) {
+                    minRatio = ratio;
+                } else {
+                    if (Math.abs(minRatio.toFloat() - largestPictureAspectRatio.toFloat()) > Math.abs(ratio.toFloat() - largestPictureAspectRatio.toFloat())) {
+                        minRatio = ratio;
+                    }
+                }
+            }
+
+            SortedSet<Size> optimalPreviewSize = mPreviewSizes.sizes(minRatio);
+            mPreviewSizes.clear();
+            for (Size size : optimalPreviewSize) {
+                mPreviewSizes.add(size);
+            }
+            if (!mPreviewSizes.ratios().contains(mAspectRatio)) {
+                mAspectRatio = mPreviewSizes.ratios().iterator().next();
+            }
         }
     }
 
@@ -447,7 +480,14 @@ class Camera2 extends CameraViewImpl {
         if (mImageReader != null) {
             mImageReader.close();
         }
-        Size largest = mPictureSizes.sizes(mAspectRatio).last();
+        final Size largest;
+        SortedSet<Size> pictureSizes = mPictureSizes.sizes(mAspectRatio);
+        if (pictureSizes != null) {
+            largest = pictureSizes.last();
+        } else {
+            // If preview's aspect ratio and photo's aspect ratio does not match, select the largest photo size.
+            largest = mPictureSizes.sizes().last();
+        }
         mImageReader = ImageReader.newInstance(largest.getWidth(), largest.getHeight(),
                 ImageFormat.JPEG, /* maxImages */ 2);
         mImageReader.setOnImageAvailableListener(mOnImageAvailableListener, null);

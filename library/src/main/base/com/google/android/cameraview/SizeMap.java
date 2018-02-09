@@ -25,7 +25,7 @@ import java.util.TreeSet;
 /**
  * A collection class that automatically groups {@link Size}s by their {@link AspectRatio}s.
  */
-class SizeMap {
+class SizeMap implements Cloneable {
 
     private final ArrayMap<AspectRatio, SortedSet<Size>> mRatios = new ArrayMap<>();
 
@@ -67,6 +67,14 @@ class SizeMap {
         return mRatios.keySet();
     }
 
+    SortedSet<Size> sizes() {
+        SortedSet<Size> result = new TreeSet<>();
+        for (SortedSet<Size> sizes : mRatios.values()) {
+            result.addAll(sizes);
+        }
+        return result;
+    }
+
     SortedSet<Size> sizes(AspectRatio ratio) {
         return mRatios.get(ratio);
     }
@@ -79,4 +87,12 @@ class SizeMap {
         return mRatios.isEmpty();
     }
 
+    @Override
+    protected Object clone() {
+        SizeMap result = new SizeMap();
+        for (Size size : sizes()) {
+            result.add(size);
+        }
+        return result;
+    }
 }
